@@ -3,14 +3,32 @@
 AppAPI deploys an ExApp through a **deploy daemon**. Three modes, and
 when to use each.
 
-## HaRP — recommended for production
+## HaRP — recommended for production (Nextcloud 32+)
 
 HaRP (HTTP/AppAPI Reverse Proxy, FRP-based) is the AppAPI project's
 **recommended** daemon. AppAPI talks to the ExApp through an FRP
 tunnel, so the ExApp container needs **no exposed port** and need not
 be directly reachable from Nextcloud — the daemon brokers the
 connection. Best security posture (nothing to firewall), and it is the
-direction AppAPI is investing in.
+direction AppAPI is investing in. Requires **Nextcloud 32+**.
+
+**This image supports HaRP.** When the HaRP daemon injects
+`HP_SHARED_KEY`, the entrypoint (`start.sh`) starts an `frpc` client
+(SHA256-pinned in the image) that tunnels to a unix socket, and the
+shim listens on `/tmp/exapp.sock` (mode `0600`) instead of TCP — see
+`cmd/wanderer-exapp/listen()`. No exposed port. Without `HP_SHARED_KEY`
+the same image runs in plain TCP mode (DSP / docker-socket-proxy /
+manual-install), so one image covers all daemons.
+
+Validated: the app-side HaRP path (start.sh → frpc launch → unix-socket
+serving of `/heartbeat` + the authed proxy) was smoke-tested. The
+frps↔frpc tunnel itself needs a running HaRP server + NC 32 and was not
+exercised here. **Operational note:** with `loginFailExit = false`
+(upstream HaRP default), a broken frps tunnel does not crash the
+container, and the *local* Docker HEALTHCHECK probes the socket
+directly — so a dead tunnel is invisible to it. AppAPI's own heartbeat
+poll (through frps) is the real liveness signal; watch the daemon
+status in Nextcloud, not just container health.
 
 Use HaRP when Wanderer ships to real customers via the App Store.
 

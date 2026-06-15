@@ -111,6 +111,12 @@ Done since the first cut:
   official `nextcloud/app-skeleton-python` reference (well-formed);
 - deploy-daemon guidance written — see [`deploy/DEPLOY.md`](deploy/DEPLOY.md)
   (HaRP for production, manual-install for dev).
+- **HaRP support implemented**: `start.sh` entrypoint + SHA256-pinned
+  `frpc` in the image; the shim listens on a `0600` unix socket when a
+  HaRP daemon sets `HP_SHARED_KEY`, else plain TCP — one image for all
+  daemons. App-side validated live (start.sh → frpc → unix-socket
+  `/heartbeat` + authed proxy). The frps↔frpc tunnel needs a running
+  HaRP server + NC 32 and is not exercised here.
 
 Remaining before App-Store publish: confirm the `<scopes>` + NC
 version window in `info.xml` at publish time, add the core repo's

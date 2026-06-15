@@ -36,6 +36,11 @@ type config struct {
 	wandererAddr string // WANDERER_ADDR — loopback addr Wanderer listens on
 	wandererBin  string // WANDERER_BIN — path to the wanderer binary ("" = don't spawn)
 	wandererDB   string // WANDERER_DB — Wanderer's SQLite path
+	// harpKey is HP_SHARED_KEY: set by a HaRP deploy daemon. When
+	// present, start.sh runs an frpc client that tunnels to a unix
+	// socket, so the shim must listen on harpSocket instead of TCP.
+	harpKey    string
+	harpSocket string // unix socket frpc forwards to (HaRP); /tmp/exapp.sock per HaRP's start.sh
 }
 
 func loadConfig() config {
@@ -46,6 +51,8 @@ func loadConfig() config {
 		wandererAddr: envOr("WANDERER_ADDR", "127.0.0.1:8080"),
 		wandererBin:  envOr("WANDERER_BIN", "wanderer"),
 		wandererDB:   envOr("WANDERER_DB", "/var/lib/wanderer/wanderer.db"),
+		harpKey:      os.Getenv("HP_SHARED_KEY"),
+		harpSocket:   envOr("HP_EXAPP_SOCKET", "/tmp/exapp.sock"),
 	}
 }
 
@@ -94,13 +101,16 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:              cfg.appHost + ":" + cfg.appPort,
 		Handler:           handlers.Router(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
+	ln, err := listen(cfg, logger)
+	if err != nil {
+		logger.Error("exapp.listen_failed", "err", err)
+		os.Exit(1)
+	}
 	go func() {
-		logger.Info("exapp.start", "addr", srv.Addr, "wanderer", cfg.wandererAddr)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 			logger.Error("exapp.serve_error", "err", err)
 			stop()
 		}
@@ -111,6 +121,39 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
+}
+
+// listen builds the ExApp's inbound listener. Under a HaRP deploy
+// daemon (HP_SHARED_KEY set), start.sh runs an frpc client whose
+// proxy forwards to a unix socket, so the shim must listen on that
+// socket. Otherwise — the DSP / docker-socket-proxy / manual-install
+// path — it listens on TCP APP_HOST:APP_PORT.
+func listen(cfg config, logger *slog.Logger) (net.Listener, error) {
+	if cfg.harpKey != "" {
+		// frpc connects fresh each start; remove a stale socket from a
+		// previous run so the bind does not fail with "address in use".
+		_ = os.Remove(cfg.harpSocket)
+		ln, err := net.Listen("unix", cfg.harpSocket)
+		if err != nil {
+			return nil, err
+		}
+		// Only frpc (same user, same container) connects to this socket;
+		// lock it to the owner so no other local process can reach the
+		// gate's unauthenticated /heartbeat.
+		if err := os.Chmod(cfg.harpSocket, 0o600); err != nil {
+			_ = ln.Close()
+			return nil, err
+		}
+		logger.Info("exapp.start", "mode", "harp", "socket", cfg.harpSocket, "wanderer", cfg.wandererAddr)
+		return ln, nil
+	}
+	addr := cfg.appHost + ":" + cfg.appPort
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	logger.Info("exapp.start", "mode", "tcp", "addr", addr, "wanderer", cfg.wandererAddr)
+	return ln, nil
 }
 
 // startWanderer launches `wanderer serve` on the loopback address the
