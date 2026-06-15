@@ -66,29 +66,44 @@ Until the core tags releases, the image pins `WANDERER_VERSION=main`.
 Tagging the core (e.g. `v0.1.0`) gives reproducible pins — a core-side
 decision, not done here.
 
-## Local validation (run this — it was NOT smoke-tested here)
+## Local validation
 
-The authoring environment had no Docker, so the **Go shim is unit-
-tested (`go test ./...`) but the live AppAPI deploy against a real
-Nextcloud is unverified**. To validate:
+The container was **smoke-tested end-to-end against Nextcloud 30.0.17
++ AppAPI 4.0.6** (2026-06-15): the image builds, the shim starts the
+core, AppAPI authenticated against it, called `/init`, and the ExApp
+registered as `enabled`. The reproduction (using AppAPI's
+`manual-install` daemon, which registers an already-running container
+— the path that works without the deploy daemon spawning containers
+itself):
 
 ```sh
-docker compose -f deploy/docker-compose.dev.yml up -d --build
-# finish the Nextcloud wizard at http://localhost:8080 (admin/admin),
-# ensure the AppAPI app is enabled, then register a manual deploy
-# daemon and this ExApp via `occ app_api:daemon:register` +
-# `occ app_api:app:register` (see the AppAPI docs).
+# 1. build + run the ExApp container (host network avoids the per-netns
+#    sysctl write that unprivileged/nested container hosts block):
+docker build -t wanderer-exapp .
+docker run -d --name wexapp --network host -e APP_SECRET=secret -e APP_PORT=9000 wanderer-exapp
+
+# 2. a Nextcloud with AppAPI (default since NC 30.0.1), then:
+occ app_api:daemon:register manual Manual manual-install http 127.0.0.1 http://127.0.0.1 --set-default
+occ app_api:app:register wanderer manual --wait-finish --json-info \
+  '{"appid":"wanderer","name":"Wanderer","daemon_config_name":"manual","version":"0.1.0","secret":"secret","host":"127.0.0.1","port":9000,"scopes":[],"system_app":false}'
+occ app_api:app:list   # → wanderer (Wanderer): 0.1.0 [enabled]
 ```
 
-`appinfo/info.xml` is a **template** — validate its schema against your
-target AppAPI version before publishing (the manifest format drifted
-across AppAPI 3.0+).
+`deploy/docker-compose.dev.yml` is the compose harness for the same
+flow. Note: in the validation above the runtime contract was exercised
+via `--json-info`; `appinfo/info.xml` is the **App-Store packaging
+manifest** and is still a template — validate its schema against your
+target AppAPI version before publishing (the format drifted across
+AppAPI 3.0+).
 
 ## Status
 
-Skeleton / spike. The Go shim builds, vets, and passes unit tests. The
-container build, ExApp manifest, and AppAPI deploy need a live
-Nextcloud to validate end-to-end.
+Working spike, validated against a live Nextcloud 30.0.17 / AppAPI
+4.0.6 (build → run → AppAPI register → enabled). The Go shim builds,
+vets, and passes unit tests. Remaining before "production": tag core
+releases + wire the release→dispatch sync, validate the `info.xml`
+App-Store manifest, and decide HaRP vs docker-socket-proxy deploy for
+non-manual installs.
 
 ## Licence
 
