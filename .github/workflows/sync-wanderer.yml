@@ -1,0 +1,54 @@
+name: sync-wanderer
+
+# Keeps the ExApp downstream of the Wanderer core: a release in
+# MWest2020/wanderer fires a repository_dispatch (type
+# "wanderer-release") carrying the new version, and this workflow
+# rebuilds + publishes the ExApp image pinned to it. Also runnable
+# manually with an explicit version.
+#
+# The core repo needs a workflow that, on release, dispatches:
+#   gh api repos/MWest2020/wanderer-exapp/dispatches \
+#     -f event_type=wanderer-release \
+#     -f 'client_payload[version]=<tag>'
+on:
+  repository_dispatch:
+    types: [wanderer-release]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Wanderer core version to pin (tag or pseudo-version)"
+        required: true
+        default: "main"
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve pinned version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            V="${{ github.event.client_payload.version }}"
+          else
+            V="${{ github.event.inputs.version }}"
+          fi
+          # Guard an empty payload: fall back to main rather than
+          # `go install ...@""` (which would fail the build).
+          echo "version=${V:-main}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build + push image pinned to the core version
+        run: |
+          V="${{ steps.ver.outputs.version }}"
+          docker build --build-arg "WANDERER_VERSION=${V}" \
+            -t "ghcr.io/mwest2020/wanderer-exapp:latest" \
+            -t "ghcr.io/mwest2020/wanderer-exapp:core-${V}" .
+          docker push "ghcr.io/mwest2020/wanderer-exapp:latest"
+          docker push "ghcr.io/mwest2020/wanderer-exapp:core-${V}"

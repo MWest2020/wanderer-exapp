@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!--
+  TEMPLATE — validate against your target AppAPI version before use.
+
+  The ExApp manifest schema has drifted across AppAPI releases (3.0+
+  deprecated <scopes>/<system>). This file was authored from the
+  AppAPI docs but was NOT validated against a live Nextcloud in the
+  authoring environment (no Docker). Confirm the element names and
+  required scopes against:
+  https://nextcloud.github.io/app_api/tech_details/Deployment.html
+-->
+<info>
+    <id>wanderer</id>
+    <name>Wanderer</name>
+    <summary>Sovereignty observation for your Nextcloud</summary>
+    <description><![CDATA[
+Wanderer observes the externally visible digital footprint of an
+organisation (DNS, MX, TLS, HTTP, IP/ASN) and scores it for Dutch /
+EU digital sovereignty. This ExApp packages Wanderer as a Nextcloud
+External App: the AppAPI deploy daemon runs it as a container, no
+separate binary for the admin to manage.
+
+The Wanderer core is pure Go and lives upstream at
+github.com/MWest2020/wanderer; this app only adds the AppAPI surface.
+    ]]></description>
+    <version>0.1.0</version>
+    <licence>EUPL-1.2</licence>
+    <author>Conduction B.V.</author>
+    <namespace>Wanderer</namespace>
+    <category>security</category>
+    <category>monitoring</category>
+    <bugs>https://github.com/MWest2020/wanderer-exapp/issues</bugs>
+    <dependencies>
+        <nextcloud min-version="30" max-version="31"/>
+    </dependencies>
+    <external-app>
+        <docker-install>
+            <registry>ghcr.io</registry>
+            <image>mwest2020/wanderer-exapp</image>
+            <image-tag>latest</image-tag>
+        </docker-install>
+        <!-- Wanderer's UI/API is self-contained; it needs no Nextcloud
+             data scopes for the first wave. Add scopes here only when a
+             feature reads Nextcloud user/file data. -->
+        <scopes></scopes>
+    </external-app>
+</info>
