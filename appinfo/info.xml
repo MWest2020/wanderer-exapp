@@ -1,13 +1,15 @@
 <?xml version="1.0"?>
 <!--
-  TEMPLATE — validate against your target AppAPI version before use.
+  ExApp App-Store packaging manifest. The <external-app><docker-install>
+  structure below matches the official nextcloud/app-skeleton-python
+  reference (confirmed 2026-06-15) and is well-formed.
 
-  The ExApp manifest schema has drifted across AppAPI releases (3.0+
-  deprecated <scopes>/<system>). This file was authored from the
-  AppAPI docs but was NOT validated against a live Nextcloud in the
-  authoring environment (no Docker). Confirm the element names and
-  required scopes against:
-  https://nextcloud.github.io/app_api/tech_details/Deployment.html
+  Still to confirm at App-Store publish time: the <scopes> values your
+  features actually need, and the NC min/max-version window. The live
+  runtime contract (AppAPI auth + lifecycle) was validated separately
+  via `occ app_api:app:register --json-info` against NC 30.0.17 — see
+  the README; the store-publish path additionally exercises this file.
+  Ref: https://docs.nextcloud.com/server/stable/developer_manual/exapp_development/tech_details/Deployment.html
 -->
 <info>
     <id>wanderer</id>

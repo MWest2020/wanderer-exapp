@@ -5,15 +5,18 @@
 #
 # WANDERER_VERSION pins the downstream dependency on the core module.
 # The sync workflow (.github/workflows/sync-wanderer.yml) bumps it to
-# the latest core release. Default "main" until the core tags releases.
-ARG WANDERER_VERSION=main
+# the latest core release.
+ARG WANDERER_VERSION=v0.1.0
 
 FROM golang:1.25-alpine AS build
 RUN apk add --no-cache git
 ENV CGO_ENABLED=0
 ARG WANDERER_VERSION
 # Pinned Wanderer core binary (pure-Go, modernc sqlite — no cgo).
-RUN go install github.com/MWest2020/wanderer/cmd/wanderer@${WANDERER_VERSION}
+# -ldflags injects the pinned version so `wanderer version` reports it
+# (the core's Makefile sets it via ldflags, which `go install` skips).
+RUN go install -ldflags="-s -w -X main.Version=${WANDERER_VERSION}" \
+        github.com/MWest2020/wanderer/cmd/wanderer@${WANDERER_VERSION}
 WORKDIR /src
 COPY . .
 RUN go build -trimpath -o /out/wanderer-exapp ./cmd/wanderer-exapp

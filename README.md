@@ -99,11 +99,23 @@ AppAPI 3.0+).
 ## Status
 
 Working spike, validated against a live Nextcloud 30.0.17 / AppAPI
-4.0.6 (build → run → AppAPI register → enabled). The Go shim builds,
-vets, and passes unit tests. Remaining before "production": tag core
-releases + wire the release→dispatch sync, validate the `info.xml`
-App-Store manifest, and decide HaRP vs docker-socket-proxy deploy for
-non-manual installs.
+4.0.6 — build → run → AppAPI register → `[enabled]`, and a real scan
+driven through the ExApp proxy (`POST /scans` → 201, complete). The Go
+shim builds, vets, and passes unit tests.
+
+Done since the first cut:
+- core pins to a real release: image defaults to `WANDERER_VERSION=v0.1.0`
+  and injects it (`wanderer version` reports `v0.1.0`); the core's
+  `release-dispatch` workflow notifies this repo on each release;
+- `appinfo/info.xml` `<external-app>` structure confirmed against the
+  official `nextcloud/app-skeleton-python` reference (well-formed);
+- deploy-daemon guidance written — see [`deploy/DEPLOY.md`](deploy/DEPLOY.md)
+  (HaRP for production, manual-install for dev).
+
+Remaining before App-Store publish: confirm the `<scopes>` + NC
+version window in `info.xml` at publish time, add the core repo's
+`EXAPP_DISPATCH_TOKEN` secret (so release→dispatch fires), and a HaRP
+end-to-end run.
 
 ## Licence
 
