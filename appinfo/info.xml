@@ -7,8 +7,8 @@
   Still to confirm at App-Store publish time: the <scopes> values your
   features actually need, and the NC min/max-version window. The live
   runtime contract (AppAPI auth + lifecycle) was validated separately
-  via `occ app_api:app:register --json-info` against NC 30.0.17 — see
-  the README; the store-publish path additionally exercises this file.
+  via the occ app_api:app:register JSON-info path against NC 30.0.17 —
+  see the README; store-publish additionally exercises this file.
   Ref: https://docs.nextcloud.com/server/stable/developer_manual/exapp_development/tech_details/Deployment.html
 -->
 <info>
@@ -31,9 +31,17 @@ github.com/MWest2020/wanderer; this app only adds the AppAPI surface.
     <namespace>Wanderer</namespace>
     <category>security</category>
     <category>monitoring</category>
+    <website>https://github.com/MWest2020/wanderer</website>
     <bugs>https://github.com/MWest2020/wanderer-exapp/issues</bugs>
+    <repository type="git">https://github.com/MWest2020/wanderer-exapp.git</repository>
+    <!-- Placeholder until real screenshots are added under screenshots/
+         and attached to the release archive. Replace before publishing. -->
+    <screenshot>https://raw.githubusercontent.com/MWest2020/wanderer-exapp/main/screenshots/dashboard.png</screenshot>
     <dependencies>
-        <nextcloud min-version="30" max-version="31"/>
+        <!-- Min 30: the DSP / docker-socket-proxy path works from the
+             AppAPI baseline. HaRP (recommended) needs 32+. Bump max as
+             newer Nextcloud releases are tested. -->
+        <nextcloud min-version="30" max-version="32"/>
     </dependencies>
     <external-app>
         <docker-install>

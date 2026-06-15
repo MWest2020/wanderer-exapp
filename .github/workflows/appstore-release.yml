@@ -1,0 +1,56 @@
+name: appstore-release
+
+# On a published GitHub release, package the ExApp metadata, attach the
+# tarball as a release asset, sign it with the Nextcloud App Store
+# certificate, and publish the release to apps.nextcloud.com.
+#
+# One-time prerequisites (see scripts/appstore-cert.sh + DEPLOY.md):
+#   - obtain the signing cert (PR to nextcloud/app-certificate-requests)
+#   - repo secrets:
+#       APPSTORE_CERT_KEY  the wanderer.key private key (PEM)
+#       APPSTORE_TOKEN     apps.nextcloud.com API token
+# Until both secrets exist the job no-ops with a clear message rather
+# than failing.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write # to attach the tarball as a release asset
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Guard on secrets
+        id: guard
+        env:
+          K: ${{ secrets.APPSTORE_CERT_KEY }}
+          T: ${{ secrets.APPSTORE_TOKEN }}
+        run: |
+          if [ -z "$K" ] || [ -z "$T" ]; then
+            echo "APPSTORE_CERT_KEY / APPSTORE_TOKEN not set — skipping appstore publish." >&2
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build archive
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          mkdir -p build/wanderer/appinfo
+          cp appinfo/info.xml build/wanderer/appinfo/info.xml
+          [ -d screenshots ] && cp -r screenshots build/wanderer/screenshots || true
+          tar -C build -czf wanderer.tar.gz wanderer
+      - name: Attach tarball to the release
+        if: steps.guard.outputs.skip != 'true' && github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.event.release.tag_name }}" wanderer.tar.gz --clobber
+      - name: Sign + publish to the App Store
+        if: steps.guard.outputs.skip != 'true' && github.event_name == 'release'
+        env:
+          APPSTORE_CERT_KEY: ${{ secrets.APPSTORE_CERT_KEY }}
+          APPSTORE_TOKEN: ${{ secrets.APPSTORE_TOKEN }}
+          DOWNLOAD_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/wanderer.tar.gz
+        run: bash scripts/appstore-release.sh
