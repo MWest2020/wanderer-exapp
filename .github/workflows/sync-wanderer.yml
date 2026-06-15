@@ -27,7 +27,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Resolve pinned version
         id: ver
         run: |
@@ -39,7 +39,7 @@ jobs:
           # Guard an empty payload: fall back to main rather than
           # `go install ...@""` (which would fail the build).
           echo "version=${V:-main}" >> "$GITHUB_OUTPUT"
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
